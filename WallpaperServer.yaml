@@ -1,0 +1,36 @@
+- name: Fix wallpaper for all users
+  hosts: windows
+  tasks:
+    - name: 1. Create wallpaper directory
+      win_file:
+        path: C:\Wallpaper
+        state: directory
+
+    - name: 2. Copy image
+      win_copy:
+        src: files/background.jpeg
+        dest: C:\Wallpaper\background.jpeg
+
+    - name: 3. Set Wallpaper (Current Admin)
+      win_regedit:
+        path: HKCU:\Control Panel\Desktop
+        name: "{{ item.name }}"
+        data: "{{ item.data }}"
+      loop:
+        - { name: 'Wallpaper', data: 'C:\Wallpaper\background.jpeg' }
+        - { name: 'WallpaperStyle', data: '10' } # 10 = Fill (Розтягнути)
+        - { name: 'TileWallpaper', data: '0' }    # 0 = Вимкнути плитку
+
+    - name: 4. Set Wallpaper (For All Other Users)
+      win_regedit:
+        path: HKU:\.DEFAULT\Control Panel\Desktop
+        name: "{{ item.name }}"
+        data: "{{ item.data }}"
+      loop:
+        - { name: 'Wallpaper', data: 'C:\Wallpaper\background.jpeg' }
+        - { name: 'WallpaperStyle', data: '10' }
+        - { name: 'TileWallpaper', data: '0' }
+
+    - name: 5. Restart Explorer (The simplest way to refresh screen)
+      win_shell: Stop-Process -Name explorer -Force
+      ignore_errors: yes # Щоб плейбук не впав, якщо провідник вже закритий
