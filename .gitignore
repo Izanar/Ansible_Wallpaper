@@ -1,3 +1,6 @@
+.ansible/
+ansible.log
+*.retry
 venv/
 .venvWallpaper/
 hosts.ini

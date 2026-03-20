@@ -31,6 +31,12 @@
         - { name: 'WallpaperStyle', data: '10' }
         - { name: 'TileWallpaper', data: '0' }
 
-    - name: 5. Restart Explorer (The simplest way to refresh screen)
-      win_shell: Stop-Process -Name explorer -Force
-      ignore_errors: yes # Щоб плейбук не впав, якщо провідник вже закритий
+    - name: 5. Refresh wallpaper without killing explorer
+      win_shell: |
+        $code = @'
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+        '@
+        $type = Add-Type -MemberDefinition $code -Name "Win32SystemParametersInfo" -PassThru
+        $type::SystemParametersInfo(0x0014, 0, "C:\Wallpaper\background.jpeg", 0x01 -bor 0x02)
+
