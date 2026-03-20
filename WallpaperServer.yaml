@@ -31,12 +31,15 @@
         - { name: 'WallpaperStyle', data: '10' }
         - { name: 'TileWallpaper', data: '0' }
 
-    - name: 5. Refresh wallpaper without killing explorer
+    - name: 5. Force Refresh Wallpaper (Win32 API)
       win_shell: |
         $code = @'
-        [DllImport("user32.dll", CharSet = CharSet.Auto)]
-        public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+        using System.Runtime.InteropServices;
+        public class Wallpaper {
+          [DllImport("user32.dll", CharSet = CharSet.Auto)]
+          public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
+        }
         '@
-        $type = Add-Type -MemberDefinition $code -Name "Win32SystemParametersInfo" -PassThru
-        $type::SystemParametersInfo(0x0014, 0, "C:\Wallpaper\background.jpeg", 0x01 -bor 0x02)
+        Add-Type -TypeDefinition $code
+        [Wallpaper]::SystemParametersInfo(0x0014, 0, "C:\Wallpaper\background.jpeg", 0x01 -bor 0x02)
 
