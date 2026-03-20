@@ -8,30 +8,32 @@
 
     - name: 2. Copy image
       win_copy:
-        src: files/background.jpeg
-        dest: C:\Wallpaper\background.jpeg
+        src: files/background1.jpeg
+        dest: C:\Wallpaper\background1.jpeg
 
-    - name: 3. Set Wallpaper (Current Admin)
-      win_regedit:
-        path: HKCU:\Control Panel\Desktop
-        name: "{{ item.name }}"
-        data: "{{ item.data }}"
-      loop:
-        - { name: 'Wallpaper', data: 'C:\Wallpaper\background.jpeg' }
-        - { name: 'WallpaperStyle', data: '10' } # 10 = Fill (Розтягнути)
-        - { name: 'TileWallpaper', data: '0' }    # 0 = Вимкнути плитку
+    - name: 3. Clear Wallpaper Cache (Before refresh)
+      win_shell: |
+        $cache = "$env:APPDATA\Microsoft\Windows\Themes\TranscodedWallpaper"
+        if (Test-Path $cache) { Remove-Item $cache -Force }
+      ignore_errors: yes
 
-    - name: 4. Set Wallpaper (For All Other Users)
-      win_regedit:
-        path: HKU:\.DEFAULT\Control Panel\Desktop
-        name: "{{ item.name }}"
-        data: "{{ item.data }}"
-      loop:
-        - { name: 'Wallpaper', data: 'C:\Wallpaper\background.jpeg' }
-        - { name: 'WallpaperStyle', data: '10' }
-        - { name: 'TileWallpaper', data: '0' }
+    - name: 4. Set Registry for Default and All Active Users
+      win_shell: |
+        # Для новых юзеров
+        $default = "Registry::HKEY_USERS\.DEFAULT\Control Panel\Desktop"
+        Set-ItemProperty -Path $default -Name "Wallpaper" -Value "C:\Wallpaper\background1.jpeg"
+        
+        # Для всех текущих (включая тебя)
+        $SIDs = Get-ChildItem Registry::HKEY_USERS | Where-Object { $_.PSChildName -like "S-1-5-21-*" }
+        foreach ($SID in $SIDs) {
+            $path = "Registry::HKEY_USERS\$($SID.PSChildName)\Control Panel\Desktop"
+            if (Test-Path $path) {
+                Set-ItemProperty -Path $path -Name "Wallpaper" -Value "C:\Wallpaper\background1.jpeg"
+                Set-ItemProperty -Path $path -Name "WallpaperStyle" -Value "10"
+            }
+        }
 
-    - name: 5. Force Refresh Wallpaper (Win32 API)
+    - name: 5. Force Refresh via Win32 API
       win_shell: |
         $code = @'
         using System.Runtime.InteropServices;
@@ -41,5 +43,13 @@
         }
         '@
         Add-Type -TypeDefinition $code
-        [Wallpaper]::SystemParametersInfo(0x0014, 0, "C:\Wallpaper\background.jpeg", 0x01 -bor 0x02)
+        [Wallpaper]::SystemParametersInfo(0x0014, 0, "C:\Wallpaper\background1.jpeg", 0x01 -bor 0x02)
 
+    - name: 6. Restart Explorer (Nuclear Option)
+      win_shell: |
+        Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2
+        # Проводник обычно встает сам, но на всякий случай толкаем:
+        if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) {
+            Start-Process explorer.exe
+        }
