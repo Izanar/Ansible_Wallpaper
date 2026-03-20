@@ -1,0 +1,16 @@
+# 1. Включаем службу WinRM и базовую авторизацию
+winrm quickconfig -q
+winrm set winrm/config/service/auth '@{Basic="true"}'
+
+# 2. Создаем сертификат и сразу сохраняем его объект в переменную $Cert
+$Cert = New-SelfSignedCertificate -DnsName $env:COMPUTERNAME -CertStoreLocation Cert:\LocalMachine\My -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.1")
+
+# 3. Создаем HTTPS-слушатель, автоматически подставляя Thumbprint из переменной
+# Мы используем двойные лапки снаружи, чтобы PowerShell раскрыл переменную внутри
+winrm create winrm/config/Listener?Address=*+Transport=HTTPS "@{CertificateThumbprint=`"$($Cert.Thumbprint)`"}"
+
+# 4. Открываем порт в брандмауэре
+New-NetFirewallRule -Name "Allow WinRM HTTPS" -DisplayName "WinRM HTTPS" -Enabled True -Profile Any -Action Allow -Protocol TCP -LocalPort 5986
+
+# 5. Проверка результата
+winrm enumerate winrm/config/listener
